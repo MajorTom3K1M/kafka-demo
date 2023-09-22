@@ -1,0 +1,83 @@
+version: '2'
+
+networks:
+  app-tier:
+    driver: bridge
+
+services:
+  kafka:
+    image: 'bitnami/kafka:latest'
+    networks:
+      - app-tier
+    environment:
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+
+  click-service:
+    container_name: click-service
+    restart: always
+    build: ./click-service
+    volumes:
+      - ./click-service:/app
+    environment:
+      - MONGODB=mongodb://mongo:27017/click
+      - KAFKA_HOST=kafka
+      - PORT=3000
+    ports:
+      - '3000:3000'
+    networks:
+      - app-tier
+
+  analytics-service:
+    container_name: analytics-service
+    restart: always
+    build: ./analytics-service
+    volumes:
+      - ./analytics-service:/app
+    environment:
+      - MONGODB=mongodb://mongo:27017/analytics
+      - KAFKA_HOST=kafka
+      - PORT=3001
+    ports:
+      - '3001:3001'
+    networks:
+      - app-tier
+      
+  dashboard-service:
+    container_name: dashboard-service
+    restart: always
+    build: ./dashboard-service
+    volumes:
+      - ./dashboard-service:/app
+    environment:
+      - MONGODB=mongodb://mongo:27017/analytics
+      - KAFKA_HOST=kafka
+      - PORT=3002
+    ports:
+      - '3002:3002'
+    networks:
+      - app-tier
+
+  # frontend:
+  #   build: ./frontend
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules # Exclude node_modules to speed up build
+  #   environment:
+  #     - PORT=4000
+  #   ports:
+  #     - "4000:4000"
+  #   networks:
+  #     - app-tier
+
+  mongo:
+    container_name: mongo
+    image: mongo
+    ports:
+      - '27017:27017'
+    networks:
+      - app-tier
